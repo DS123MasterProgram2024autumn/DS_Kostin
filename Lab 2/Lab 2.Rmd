@@ -1,0 +1,135 @@
+---
+title: "Лабораторна робота №2. Маніпулювання даними"
+author: "&copy; [Костін Є.В.](https://github.com/NickWayne02), `r format(Sys.time(),
+'%Y')`"
+date: "`r Sys.Date()`"
+output:
+  html_notebook:
+    toc: yes
+    toc_float: yes
+    highlight: tango
+    fontsize: 12pt
+  editor_options:
+    chunk_output_type: inline
+---
+
+*Мета:* Засвоєння принципів, знайомвство з інструментами та набуття навичок манпулювання даними (wrangle) засобами мови програмування R та колекції пакетів tidyverse (Hadley Wickham 2021c).
+
+## Хід роботи
+
+Створити реляційну БД, використовуючи СУБД SQLite. Виконати експорт даних у БД зі стандартного набору nycflights13 щодо авіаперевезень аеропорту Нью-Йорк за 2013 рік.
+
+Налаштувати індекси: (“year,” “month,” “day”), “carrier,” “tailnum,” “dest.”
+Підготувати RMarkdown-документ, який би давав можливість генерувати електронний звіт з результатами виконання наступних задач:
+
+вибрати поля year:day, dep_delay, arr_delay з таблиці flights.
+вибрати всі рейси з часом затримки (dep_delay) більше ніж 240 хв.
+Обчислити середній час затримки вильоту (dep_time) з попереднім групуванням по відстані авіамаршруту (dest).
+Обчислити для кожного бортового номеру літака з кількістю рейсів більше 100 середній час затримки прибуття та кількість рейсів; дані впорядкувати за убуванням часу затримки прибуття.
+розділити набір даних по літаках і розрахувати кількість вильотів і середню дальність польоту і затримку прибуття; побудувати графік залежності середньої затримки від середньої дальності польоту (за допомогою ggplot2).
+знайти кількість літаків і кількість вильотів в усі можливі пункти призначення.
+
+## Виконання завдання
+
+### 1. Створив реляційну БД, використовуючи СУБД SQLite.
+
+```{r}
+# Підключив необхідні бібліотеки
+library(DBI)
+library(dplyr)
+library(RSQLite)
+library(nycflights13)
+
+# Створив папку Data
+dataDir <- "data"
+if (!dir.exists(dataDir)) {
+  dir.create(dataDir)
+  message("Папка створена: ", dataDir)
+}
+  
+# Встановив з'єднання з базою даних
+connection <- dbConnect(RSQLite::SQLite(), "data/flightsDB.sqlite3")
+
+# Скопіював дані у БД
+DBTables <- dbListTables(connection)
+if (!"flights" %in% DBTables) {
+  flightsDB <- copy_to(connection, nycflights13::flights, "flights",
+        temporary = FALSE, 
+        indexes = list(
+          c("year", "month", "day"), 
+          "carrier", 
+          "tailnum",
+          "dest"
+        )
+)
+} else {
+  flightsDB <- tbl(connection, "flights")
+}
+
+# Вивів перші 8 рядків
+head(flightsDB, 8)
+```
+
+### 2. Вивів поля `year:day`, `dep_delay`, `arr_delay` з таблиці flights
+
+```{r}
+flightsDB %>% select(year:day, dep_delay, arr_delay)
+```
+
+### 3. Вибрав всі рейси з часом затримки (dep_delay) більше ніж 240 хв.
+
+```{r}
+flightsDB %>% filter(dep_delay > 240)
+```
+
+### 4. Обчислив середній час затримки вильоту (dep_time) з попереднім групуванням по відстані авіамаршруту (dest).
+
+```{r}
+flightsDB %>% 
+  group_by(dest) %>%
+  summarise(delay = mean(dep_time, na.rm = TRUE))
+```
+
+### 5. Обчислив для кожного бортового номеру літака з кількістю рейсів більше 100 середній час затримки прибуття та кількість рейсів; дані впорядкував за убуванням часу затримки прибуття.
+
+```{r}
+flightsDB %>% 
+  group_by(tailnum) %>%
+  summarise(
+    delay = mean(arr_delay),
+    num_flights = n()
+  ) %>% 
+  arrange(desc(delay)) %>%
+  filter(num_flights > 100)
+```
+
+### 6. Розділив набір даних по літаках і розрахувати кількість вильотів і середню дальність польоту і затримку прибуття; побудував графік залежності середньої затримки від середньої дальності польоту (за допомогою ggplot2).
+
+```{r}
+library(ggplot2)
+planes <- group_by(flights, tailnum)
+delay <- summarise(planes,
+  count = n(),
+  dist = mean(distance, na.rm = TRUE),
+  delay = mean(arr_delay, na.rm = TRUE))
+delay <- filter(delay, count > 20, dist < 2000)
+
+ggplot(delay, aes(dist, delay)) +
+  geom_point(aes(size = count), alpha = 1/2) +
+  geom_smooth() +
+  scale_size_area()
+```
+
+### 7. Знайшов кількість літаків і кількість вильотів в усі можливі пункти призначення.
+
+```{r}
+destinations <- group_by(flights, dest)
+summarise(destinations,
+  planes = n_distinct(tailnum),
+  flights = n()
+)
+```
+
+```{r}
+DBI::dbDisconnect(connection)
+```
