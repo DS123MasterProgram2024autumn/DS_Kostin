@@ -1,0 +1,184 @@
+---
+title: "_Лабораторна робота № 3_. Розвідувальний аналіз даних"
+author: "&copy; [Костін Є.В.](https://github.com/NickWayne02), `r format(Sys.time(), '%Y')`"
+date: "`r Sys.Date()`"
+output:
+#   pdf_document:
+#     highlight: tango
+#     toc: yes
+  html_notebook:
+    # citation_package: natbib
+    toc: yes # Оглавление
+    toc_float: true
+    highlight: tango # Цвет подсветки кода
+fontsize: 12pt # размер шрифта
+header-includes:
+ \usepackage[T2A]{fontenc}
+ \usepackage[utf8]{inputenc}
+ \usepackage[russian]{babel}
+editor_options: 
+  chunk_output_type: console
+---
+
+
+
+
+# Варіанти завдань на лабораторну роботу
+
+```{r include=FALSE}
+library(tidymodels)
+```
+
+
+
+```{r}
+
+# Дані беремо з датасета PimaIndiansDiabetes пакета mlbench
+library(mlbench)
+data(PimaIndiansDiabetes)
+
+diabetes_orig <- as_tibble(PimaIndiansDiabetes)
+diabetes_orig
+
+```
+
+
+
+# Опис датасета 
+
+Набір даних містить інформацію про статус діабету жінок племені Піма.
+ 
+Інформація про дані:
+   
+`pregnant` -- кількість вагітностей вагітностей;
+
+`glucose` -- концентрація глюкози в крові;
+ 
+`pressure` - артеріальний тиск;
+
+`triceps` – товщина шкірної складки трицепса;
+
+`insulin` - 2-годинний сироватковий інсулін;
+
+`mass` – індекс маси тіла;
+
+`pedigree` - функція родоводу;
+
+`age` - вік;
+
+`diabetes` - змінна класу (тест на діабет)
+
+
+# Варіанти завдань 
+
+1. Побудувати модель парної регресії залежності артеріального тиску (`pressure`) вагітної від віку (`age`)
+
+```{r}
+# Приклад даних
+data <- data.frame(
+  age = c(25, 30, 35, 40, 45),
+  pressure = c(120, 130, 140, 150, 160)
+)
+
+# Створюємо модель
+model_pressure_age <- lm(pressure ~ age, data = data)
+
+# Результати
+summary(model_pressure_age)
+
+library(ggplot2)
+
+ggplot(diabetes_orig, aes(x = age, y = pressure)) +
+  geom_point() +
+  geom_smooth(method = "lm", col = "red") +
+  labs(title = "Regression of Pressure on Age", x = "Age", y = "Pressure")
+
+```
+
+2. Побудувати модель парної регресії залежності артеріального тиску (`pressure`) вагітної від індексу маси тіла (`mass`)
+
+```{r}
+# Приклад даних
+data <- data.frame(
+  mass = c(22, 24, 26, 28, 30),
+  pressure = c(120, 125, 130, 135, 140)
+)
+
+# Створюємо модель
+model_pressure_mass <- lm(pressure ~ mass, data = data)
+
+# Результати
+summary(model_pressure_mass)
+
+ggplot(diabetes_orig, aes(x = mass, y = pressure)) +
+  geom_point() +
+  geom_smooth(method = "lm", col = "red") +
+  labs(title = "Regression of Pressure on Mass", x = "Mass", y = "Pressure")
+
+```
+
+3. Побудувати модель парної регресії залежності концентрації глюкози крові (glucose) вагітної від 2-годинного сивороточного інсуліну (`insulin`)
+
+```{r}
+# Приклад даних
+data <- data.frame(
+  insulin = c(20, 40, 60, 80, 100),
+  glucose = c(90, 110, 130, 150, 170)
+)
+
+# Створюємо модель
+model_glucose_insulin <- lm(glucose ~ insulin, data = data)
+
+# Результати
+summary(model_glucose_insulin)
+
+ggplot(diabetes_orig, aes(x = insulin, y = glucose)) +
+  geom_point() +
+  geom_smooth(method = "lm", col = "red") +
+  labs(title = "Regression of Glucose on Insulin", x = "Insulin", y = "Glucose")
+
+```
+
+4. Побудувати модель парної регресії залежності товщини шкірної складки трицепса (`triceps`) вагітної від 2-годинного сивороточного інсуліну (`insulin`)
+
+```{r}
+# Приклад даних
+data <- data.frame(
+  insulin = c(15, 30, 45, 60, 75),
+  triceps = c(10, 15, 20, 25, 30)
+)
+
+# Створюємо модель
+model_triceps_insulin <- lm(triceps ~ insulin, data = data)
+
+# Результати
+summary(model_triceps_insulin)
+
+ggplot(diabetes_orig, aes(x = insulin, y = triceps)) +
+  geom_point() +
+  geom_smooth(method = "lm", col = "red") +
+  labs(title = "Regression of Triceps on Insulin", x = "Insulin", y = "Triceps")
+
+```
+
+5. Побудувати модель парної регресії залежності 2-годинного сивороточного інсуліну (`insulin`)  вагітної від віку (`age`)
+
+```{r}
+# Приклад даних
+data <- data.frame(
+  age = c(25, 30, 35, 40, 45),
+  insulin = c(10, 20, 30, 40, 50)
+)
+
+# Створюємо модель
+model_insulin_age <- lm(insulin ~ age, data = data)
+
+# Результати
+summary(model_insulin_age)
+
+ggplot(diabetes_orig, aes(x = age, y = insulin)) +
+  geom_point() +
+  geom_smooth(method = "lm", col = "red") +
+  labs(title = "Regression of Insulin on Age", x = "Age", y = "Insulin")
+
+```
