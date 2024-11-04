@@ -1,0 +1,41 @@
+---
+title: "Доставка результатів Data Science-проєкту та його розгортання"
+author: "[Костін Є. В.](https://github.com/NickWayne02), `r format(Sys.time(), '%Y')`"
+date: "`r Sys.Date()`"
+output: flexdashboard::flex_dashboard
+---
+
+```{r setup, include = FALSE}
+library(ggplot2)
+library(dplyr)
+knitr::opts_chunk$set(fig.width = 5, fig.asp = 1/3)
+```
+
+## Колонка 1
+
+### Карати
+
+```{r}
+ggplot(diamonds, aes(carat)) + geom_histogram(binwidth = 0.1)
+```
+## Колонка 2
+
+### Огранювання
+
+```{r}
+ggplot(diamonds, aes(cut)) +
+  geom_bar() +
+  labs(title = "Розподіл за огранюванням", x = "Огранювання", y = "Кількість")
+```
+
+## Колонка 3
+
+### Найбільші діаманти та їх вартість
+
+```{r}
+top_diamonds <- diamonds[order(-diamonds$carat), ][1:10, ]
+ggplot(top_diamonds, aes(x = reorder(rownames(top_diamonds), carat), y = price)) + 
+  geom_col(fill = "steelblue") + 
+  coord_flip() +
+  labs(title = "Найбільші діаманти та їх вартість", x = "Діаманти", y = "Вартість")
+```
