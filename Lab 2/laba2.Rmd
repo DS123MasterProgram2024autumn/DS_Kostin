@@ -289,120 +289,52 @@ starwars %>%
 ## Індивідуальне завдання
 
 ```{r}
-library(shiny)
-library(plotly)
 library(readxl)
-library(httr)
 library(dplyr)
-library(lubridate)
+library(plotly)
 library(DT)
+library(lubridate)
 
-# Функція для завантаження даних з файлу .xls
-load_data_from_file <- function(file_path) {
-  df <- read_excel(file_path)
-  
-  if (!"Дата" %in% colnames(df)) {
-    stop("Файл не містить стовпця 'Дата'. Переконайтеся, що файл має правильний формат.")
-  }
-  
-  df$Дата <- as.Date(df$Дата, format = "%d.%m.%Y")
-  
-  if (nrow(df) == 0) {
-    stop("Файл не містить даних. Перевірте вміст файлу.")
-  }
-  
-  return(df)
-}
+# Завантаження даних із очищеного Excel файлу
+data <- read_excel("cleaned_currency_data.xlsx")
 
-# Завантаження даних з файлу
-file_path <- "data/currency_data.xlsx"
-currency_data <- load_data_from_file(file_path)
+# Додаємо колонку з місяцем для середньомісячних значень
+data <- data %>% mutate(місяць = floor_date(Дата, "month"))
 
-# Функція для завантаження даних з API НБУ
-load_data_from_nbu <- function(currency_code, start_date, end_date) {
-  start_date_formatted <- format(start_date, "%Y%m%d")
-  end_date_formatted <- format(end_date, "%Y%m%d")
-  
-  url <- paste0("https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?valcode=", currency_code, "&date=", start_date_formatted, "&json")
-  response <- content(GET(url), "parsed")
-  
-  df <- data.frame(
-    Дата = as.Date(sapply(response, function(x) x$exchangedate), format="%d.%m.%Y"),
-    rate = sapply(response, function(x) x$rate),
-    currency = currency_code
+# Розрахунок середньомісячних курсів
+monthly_avg <- data %>%
+  group_by(місяць) %>%
+  summarise(
+    USD_UAH_avg = mean(USD_UAH, na.rm = TRUE),
+    EUR_UAH_avg = mean(EUR_UAH, na.rm = TRUE),
+    RUB_UAH_avg = mean(RUB_UAH, na.rm = TRUE)
   )
-  
-  return(df)
-}
 
-# Обробка даних для щоденних та середньомісячних курсів
-process_data <- function(df) {
-  df_daily <- df %>% arrange(Дата)
-  df_monthly <- df %>%
-    group_by(month = floor_date(Дата, "month"), currency) %>%
-    summarize(rate = mean(rate, na.rm = TRUE), .groups = 'drop')
-  
-  return(list(daily = df_daily, monthly = df_monthly))
-}
+# Інтерактивна таблиця щоденних курсів
+daily_table <- datatable(data, options = list(pageLength = 10, autoWidth = TRUE))
 
-# Інтерфейс Shiny
-ui <- fluidPage(
-  titlePanel("Моніторинг курсу валют"),
-  sidebarLayout(
-    sidebarPanel(
-      checkboxGroupInput("currencies", "Оберіть валюти:", 
-                         choices = c("USD", "EUR", "RUB"), selected = c("USD", "EUR", "RUB"))
-    ),
-    mainPanel(
-      plotlyOutput("currencyPlot"),
-      DTOutput("currencyTable")
-    )
-  )
-)
+# Інтерактивна таблиця середньомісячних курсів
+monthly_table <- datatable(monthly_avg, options = list(pageLength = 10, autoWidth = TRUE))
 
-# Сервер Shiny
-server <- function(input, output) {
-  data <- reactive({
-    selected_currencies <- input$currencies
-    all_data <- lapply(selected_currencies, function(currency) {
-      load_data_from_nbu(currency, as.Date("2024-01-01"), Sys.Date())
-    })
-    
-    nbu_data <- bind_rows(all_data)
-    combined_data <- bind_rows(currency_data, nbu_data)
-    processed_data <- process_data(combined_data)
-    
-    return(processed_data)
-  })
-  
-  output$currencyPlot <- renderPlotly({
-    df <- data()
-    if (nrow(df$daily) == 0 || nrow(df$monthly) == 0) {
-      return(NULL)
-    }
-    
-    fig <- plot_ly()
-    for (currency in unique(df$daily$currency)) {
-      fig <- fig %>%
-        add_lines(data = df$daily %>% filter(currency == currency), x = ~Дата, y = ~rate, name = paste("Щоденний курс", currency)) %>%
-        add_lines(data = df$monthly %>% filter(currency == currency), x = ~month, y = ~rate, name = paste("Середньомісячний курс", currency), line = list(dash = 'dash'))
-    }
-    
-    fig <- fig %>% layout(title = "Курс валют до гривні", 
-                          xaxis = list(title = "Дата"), 
-                          yaxis = list(title = "Курс"), 
-                          hovermode = "x unified",  # Додаємо уніфікований режим наведення
-                          legend = list(orientation = "h", x = 0.5, xanchor = "center"))  # Переміщуємо легенду внизу графіку
-    fig
-  })
-  
-  output$currencyTable <- renderDT({
-    datatable(data()$daily, options = list(pageLength = 10), rownames = FALSE)
-  })
-}
+# Інтерактивний графік щоденних курсів
+daily_plot <- plot_ly(data, x = ~Дата) %>%
+  add_lines(y = ~USD_UAH, name = "USD/UAH") %>%
+  add_lines(y = ~EUR_UAH, name = "EUR/UAH") %>%
+  add_lines(y = ~RUB_UAH, name = "RUB/UAH") %>%
+  layout(title = "Щоденна динаміка курсів валют", xaxis = list(title = "Дата"), yaxis = list(title = "Курс"))
 
-# Запуск додатку Shiny
-shinyApp(ui = ui, server = server)
+# Інтерактивний графік середньомісячних курсів
+monthly_plot <- plot_ly(monthly_avg, x = ~місяць) %>%
+  add_lines(y = ~USD_UAH_avg, name = "USD/UAH") %>%
+  add_lines(y = ~EUR_UAH_avg, name = "EUR/UAH") %>%
+  add_lines(y = ~RUB_UAH_avg, name = "RUB/UAH") %>%
+  layout(title = "Середньомісячна динаміка курсів валют", xaxis = list(title = "Місяць"), yaxis = list(title = "Середній курс"))
+
+# Виведення таблиць і графіків
+print(daily_table)
+print(monthly_table)
+daily_plot
+monthly_plot
 
 
 ```
